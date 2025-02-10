@@ -1,34 +1,34 @@
 {
-  "name": "bls-wasm",
-  "version": "1.4.0",
+  "name": "@terradharitri/sdk-bls-wasm",
+  "version": "0.0.1",
   "description": "BLS signature for Node.js by WebAssembly",
-  "main": "src/index.js",
+  "main": "bls.js",
   "scripts": {
-    "test": "node test/test.js"
+    "test": "node test.js"
   },
-  "types": "src/index.d.ts",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/herumi/bls-wasm.git"
+    "url": "git+https://github.com/dharitri/bls-wasm.git"
   },
   "keywords": [
     "BLS signature",
     "WebAssembly",
     "pairing"
   ],
-  "files": [
-    "package.json",
-    "src/index.js",
-    "src/bls.js",
-    "src/bls_c.js",
-    "src/index.d.ts",
-    "browser/bls.js",
-    "browser/package.json"
-  ],
   "author": "herumi <herumi@nifty.com> (https://github.com/herumi/)",
   "license": "BSD-3-Clause",
   "bugs": {
     "url": "https://github.com/herumi/bls-wasm/issues"
   },
-  "homepage": "https://github.com/herumi/bls-wasm#readme"
+  "engines": {
+    "node": ">=8.9.0"
+  },
+  "homepage": "https://github.com/herumi/bls-wasm#readme",
+  "devDependencies": {
+    "standard": "^17.1.2"
+  }
 }
+
+
+
+
