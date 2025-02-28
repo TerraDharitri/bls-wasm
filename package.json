@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dharitri/bls-wasm.git"
+    "url": "git+https://github.com/TerraDharitri/bls-wasm.git"
   },
   "keywords": [
     "BLS signature",
