@@ -1,35 +1,35 @@
-/**
- * @param createModule Async factory that returns an emcc initialized Module
- * In node, `const createModule = require(`./bls_c.js`)`
- */
-const ETH_MODE = false
+(generator => {
+  if (typeof window === 'object') {
+    const exports = {}
 
-const _blsSetupFactory = (createModule) => {
-  const exports = {}
+    if (typeof module !== 'undefined' && module.exports) {
+      module.exports = generator(exports, false)
+    } else {
+      window.bls = generator(exports, false)
+    }
+  } else {
+    generator(exports, true)
+  }
+})((exports, isNodeJs) => {
   /* eslint-disable */
   exports.BN254 = 0
   exports.BN381_1 = 1
-  exports.BN_SNARK1 = 4
   exports.BLS12_381 = 5
-  exports.ethMode = ETH_MODE
+  exports.ethMode = false
   exports.ETH_MODE_DRAFT_05 = 1
   exports.ETH_MODE_DRAFT_06 = 2
   exports.ETH_MODE_DRAFT_07 = 3
-  exports.MAP_TO_MODE_ORIGINAL = 0
-  exports.MAP_TO_MODE_HASH_TO_CURVE = 5 // IRTF
 
-  function blsSetup(exports, curveType) {
+  const setup = (exports, curveType) => {
     const mod = exports.mod
     const MCLBN_FP_UNIT_SIZE = 6
-    const MCLBN_FP_SIZE = MCLBN_FP_UNIT_SIZE * 8
-    const MCLBN_FR_UNIT_SIZE = 4
-    const MCLBN_FR_SIZE = MCLBN_FR_UNIT_SIZE * 8
+    const MCLBN_FR_UNIT_SIZE = exports.ethMode ? 4 : 6
     const BLS_COMPILER_TIME_VAR_ADJ = exports.ethMode ? 200 : 0
     const MCLBN_COMPILED_TIME_VAR = (MCLBN_FR_UNIT_SIZE * 10 + MCLBN_FP_UNIT_SIZE) + BLS_COMPILER_TIME_VAR_ADJ
-    const BLS_ID_SIZE = MCLBN_FR_SIZE
-    const BLS_SECRETKEY_SIZE = MCLBN_FR_SIZE
-    const BLS_PUBLICKEY_SIZE = MCLBN_FP_SIZE * 3 * (exports.ethMode ? 1 : 2)
-    const BLS_SIGNATURE_SIZE = MCLBN_FP_SIZE * 3 * (exports.ethMode ? 2 : 1)
+    const BLS_ID_SIZE = MCLBN_FR_UNIT_SIZE * 8
+    const BLS_SECRETKEY_SIZE = MCLBN_FP_UNIT_SIZE * 8
+    const BLS_PUBLICKEY_SIZE = BLS_SECRETKEY_SIZE * 3 * (exports.ethMode ? 1 : 2)
+    const BLS_SIGNATURE_SIZE = BLS_SECRETKEY_SIZE * 3 * (exports.ethMode ? 2 : 1)
 
     const _malloc = size => {
       return mod._blsMalloc(size)
@@ -111,7 +111,7 @@ const _blsSetupFactory = (createModule) => {
         mod.HEAP8.set(buf, pos)
         const r = func(x, pos, buf.length)
         _free(pos)
-        if (r === 0 || r !== buf.length) throw new Error('err _wrapDeserialize', buf)
+        if (r === 0) throw new Error('err _wrapDeserialize', buf)
       }
     }
     /*
@@ -183,28 +183,12 @@ const _blsSetupFactory = (createModule) => {
     }
 
     // change curveType
-    exports.blsInit = (curveType = exports.ethMode ? exports.BLS12_381 : exports.BN254) => {
+    exports.blsInit = (curveType = (exports.ethMode ? exports.BLS12_381 : exports.BN254)) => {
       const r = mod._blsInit(curveType, MCLBN_COMPILED_TIME_VAR)
       if (r) throw ('blsInit err ' + r)
     }
-    exports.mclBnFr_setLittleEndian = _wrapInput(mod._mclBnFr_setLittleEndian, 1)
-    exports.mclBnFr_setLittleEndianMod = _wrapInput(mod._mclBnFr_setLittleEndianMod, 1)
-    exports.mclBnFr_setBigEndianMod = _wrapInput(mod._mclBnFr_setBigEndianMod, 1)
-    exports.mclBnFr_setStr = _wrapInput(mod._mclBnFr_setStr, 1)
-    exports.mclBnFr_getStr = _wrapGetStr(mod._mclBnFr_getStr)
-    exports.mclBnFr_deserialize = _wrapDeserialize(mod._mclBnFr_deserialize)
-    exports.mclBnFr_serialize = _wrapSerialize(mod._mclBnFr_serialize)
-    exports.mclBnFr_setHashOf = _wrapInput(mod._mclBnFr_setHashOf, 1)
-
-    exports.mclBnG1_setStr = _wrapInput(mod._mclBnG1_setStr, 1)
-    exports.mclBnG1_getStr = _wrapGetStr(mod._mclBnG1_getStr)
-    exports.mclBnG2_setStr = _wrapInput(mod._mclBnG2_setStr, 1)
-    exports.mclBnG2_getStr = _wrapGetStr(mod._mclBnG2_getStr)
-
     exports.getCurveOrder = _wrapGetStr(mod._blsGetCurveOrder)
     exports.getFieldOrder = _wrapGetStr(mod._blsGetFieldOrder)
-    exports.setDstG1 = _wrapInput(mod._mclBnG1_setDst, 0)
-    exports.setDstG2 = _wrapInput(mod._mclBnG2_setDst, 0)
 
     exports.blsIdSetDecStr = _wrapInput(mod._blsIdSetDecStr, 1)
     exports.blsIdSetHexStr = _wrapInput(mod._blsIdSetHexStr, 1)
@@ -247,11 +231,6 @@ const _blsSetupFactory = (createModule) => {
       }
       clear () {
         this.a_.fill(0)
-      }
-      clone () {
-        const copy = new this.constructor()
-        copy.a_ = this.a_.slice(0)
-        return copy
       }
       // alloc new array
       _alloc () {
@@ -324,58 +303,6 @@ const _blsSetupFactory = (createModule) => {
         _free(yPos)
         this._saveAndFree(xPos)
       }
-    }
-
-    exports.Fr = class extends Common {
-      constructor () {
-        super(MCLBN_FR_SIZE)
-      }
-      setInt (x) {
-        this._setter(mod._mclBnFr_setInt32, x)
-      }
-      deserialize (s) {
-        this._setter(exports.mclBnFr_deserialize, s)
-      }
-      serialize () {
-        return this._getter(exports.mclBnFr_serialize)
-      }
-      setStr (s, base = 0) {
-        this._setter(exports.mclBnFr_setStr, s, base)
-      }
-      getStr (base = 0) {
-        return this._getter(exports.mclBnFr_getStr, base)
-      }
-      isZero () {
-        return this._getter(mod._mclBnFr_isZero) === 1
-      }
-      isOne () {
-        return this._getter(mod._mclBnFr_isOne) === 1
-      }
-      isEqual (rhs) {
-        return this._isEqual(mod._mclBnFr_isEqual, rhs)
-      }
-      setLittleEndian (s) {
-        this._setter(exports.mclBnFr_setLittleEndian, s)
-      }
-      setLittleEndianMod (s) {
-        this._setter(exports.mclBnFr_setLittleEndianMod, s)
-      }
-      setBigEndianMod (s) {
-        this._setter(exports.mclBnFr_setBigEndianMod, s)
-      }
-      setByCSPRNG () {
-        const a = new Uint8Array(MCLBN_FR_SIZE)
-        exports.getRandomValues(a)
-        this.setLittleEndian(a)
-      }
-      setHashOf (s) {
-        this._setter(exports.mclBnFr_setHashOf, s)
-      }
-    }
-    exports.deserializeHexStrToFr = s => {
-      const r = new exports.Fr()
-      r.deserializeHexStr(s)
-      return r
     }
 
     exports.Id = class extends Common {
@@ -523,14 +450,6 @@ const _blsSetupFactory = (createModule) => {
       serialize () {
         return this._getter(exports.blsPublicKeySerialize)
       }
-      setStr (s, base = 0) {
-        const func = ETH_MODE ? exports.mclBnG1_setStr : exports.mclBnG2_setStr
-        this._setter(func, s, base)
-      }
-      getStr (base = 0) {
-        const func = ETH_MODE ? exports.mclBnG1_getStr : exports.mclBnG2_getStr
-        return this._getter(func, base)
-      }
       deserializeUncompressed (s) {
         this._setter(exports.blsPublicKeyDeserializeUncompressed, s)
       }
@@ -540,11 +459,8 @@ const _blsSetupFactory = (createModule) => {
       add (rhs) {
         this._update(mod._blsPublicKeyAdd, rhs)
       }
-      mul (rhs) {
-        this._update(mod._blsPublicKeyMul, rhs)
-      }
-      share (mpk, id) {
-        callShare(mod._blsPublicKeyShare, this, BLS_PUBLICKEY_SIZE, mpk, id)
+      share (msk, id) {
+        callShare(mod._blsPublicKeyShare, this, BLS_PUBLICKEY_SIZE, msk, id)
       }
       recover (secVec, idVec) {
         callRecover(mod._blsPublicKeyRecover, this, BLS_PUBLICKEY_SIZE, secVec, idVec)
@@ -566,23 +482,6 @@ const _blsSetupFactory = (createModule) => {
       r.deserializeHexStr(s)
       return r
     }
-    exports.setGeneratorOfPublicKey = pub => {
-      const pubPos = pub._allocAndCopy()
-      const r = mod._blsSetGeneratorOfPublicKey(pubPos)
-      _free(pubPos)
-      if (r !== 0) throw new Error('bad public key')
-    }
-    exports.getGeneratorOfPublicKey = () => {
-      const pub = new exports.PublicKey()
-      const pubPos = _malloc(BLS_SIGNATURE_SIZE)
-      mod._blsGetGeneratorOfPublicKey(pubPos)
-      pub._saveAndFree(pubPos)
-      return pub
-    }
-    exports.getGeneratorofPublicKey = () => {
-      console.log('WARNING : getGeneratorofPublicKey is renamed to getGeneratorOfPublicKey')
-      return exports.getGeneratorOfPublicKey()
-    }
 
     exports.Signature = class extends Common {
       constructor () {
@@ -602,14 +501,6 @@ const _blsSetupFactory = (createModule) => {
       }
       deserializeUncompressed (s) {
         this._setter(exports.blsSignatureDeserializeUncompressed, s)
-      }
-      setStr (s, base = 0) {
-        const func = ETH_MODE ? exports.mclBnG2_setStr : exports.mclBnG1_setStr
-        this._setter(func, s, base)
-      }
-      getStr (base = 0) {
-        const func = ETH_MODE ? exports.mclBnG2_getStr : exports.mclBnG1_getStr
-        return this._getter(func, base)
       }
       serializeUncompressed () {
         return this._getter(exports.blsSignatureSerializeUncompressed)
@@ -684,12 +575,6 @@ const _blsSetupFactory = (createModule) => {
     exports.setETHmode = (mode) => {
       if (mod._blsSetETHmode(mode) != 0) throw new Error(`bad setETHmode ${mode}`)
     }
-    exports.setETHserialiation = (enable) => {
-      mod._mclBn_setETHserialization(enable ? 1 : 0)
-    }
-    exports.setMapToMode = (mode) => {
-      if (mod._mclBn_setMapToMode(mode) != 0) throw new Error(`bad setMapToMode ${mode}`)
-    }
     // make setter check the correctness of the order if doVerify
     exports.verifySignatureOrder = (doVerify) => {
       mod._blsSignatureVerifyOrder(doVerify)
@@ -701,7 +586,7 @@ const _blsSetupFactory = (createModule) => {
     exports.areAllMsgDifferent = (msgs, msgSize) => {
       const n = msgs.length / msgSize
       if (msgs.length != n * msgSize) return false
-      const h = {}
+      h = {}
       for (let i = 0; i < n; i++) {
         const m = msgs.subarray(i * msgSize, (i + 1) * msgSize)
         if (m in h) return false
@@ -711,7 +596,7 @@ const _blsSetupFactory = (createModule) => {
     }
     /*
       return true if all pub[i].verify(sigs[i], msgs[i])
-      msgs is a concatenation of arrays of 32-byte Uint8Array
+      msgs is array of 32-byte Uint8Array
     */
     exports.multiVerify = (pubs, sigs, msgs) => {
       const MSG_SIZE = 32
@@ -727,10 +612,7 @@ const _blsSetupFactory = (createModule) => {
       const msgPos = _malloc(MSG_SIZE * n)
       const randPos = _malloc(RAND_SIZE * n)
 
-      // getRandomValues accepts only Uint8Array
-      const rai = mod.HEAP8.subarray(randPos, randPos + RAND_SIZE * n)
-      const rau = new Uint8Array(rai.buffer, randPos, rai.length)
-      exports.getRandomValues(rau)
+      exports.getRandomValues(mod.HEAP8.subarray(randPos, randPos + RAND_SIZE * n))
       for (let i = 0; i < n; i++) {
         mod.HEAP32.set(sigs[i].a_, (sigPos + BLS_SIGNATURE_SIZE * i) / 4)
         mod.HEAP32.set(pubs[i].a_, (pubPos + BLS_PUBLICKEY_SIZE * i) / 4)
@@ -748,61 +630,7 @@ const _blsSetupFactory = (createModule) => {
     if (exports.ethMode) {
       exports.setETHmode(exports.ETH_MODE_DRAFT_07)
     }
-    exports.neg = x => {
-      if (x instanceof exports.Fr) {
-        return x._op1(mod._mclBnFr_neg)
-      }
-      throw new Error('neg:bad type')
-    }
-    exports.sqr = x => {
-      if (x instanceof exports.Fr) {
-        return x._op1(mod._mclBnFr_sqr)
-      }
-      throw new Error('sqr:bad type')
-    }
-    exports.inv = x => {
-      if (x instanceof exports.Fr) {
-        return x._op1(mod._mclBnFr_inv)
-      }
-      throw new Error('inv:bad type')
-    }
-    exports.add = (x, y) => {
-      if (x.constructor !== y.constructor) throw new Error('add:mismatch type')
-      if (x instanceof exports.Fr) {
-        return x._op2(mod._mclBnFr_add, y)
-      }
-      throw new Error('add:bad type')
-    }
-    exports.sub = (x, y) => {
-      if (x.constructor !== y.constructor) throw new Error('sub:mismatch type')
-      if (x instanceof exports.Fr) {
-        return x._op2(mod._mclBnFr_sub, y)
-      }
-      throw new Error('sub:bad type')
-    }
-    /*
-      Fr * Fr
-    */
-    exports.mul = (x, y) => {
-      if (x instanceof exports.Fr && y instanceof exports.Fr) {
-        return x._op2(mod._mclBnFr_mul, y)
-      }
-      throw new Error('mul:mismatch type')
-    }
-    exports.div = (x, y) => {
-      if (x.constructor !== y.constructor) throw new Error('div:mismatch type')
-      if (x instanceof exports.Fr) {
-        return x._op2(mod._mclBnFr_div, y)
-      }
-      throw new Error('div:bad type')
-    }
-    exports.hashToFr = s => {
-      const x = new exports.Fr()
-      x.setHashOf(s)
-      return x
-    }
-  } // blsSetup()
-
+  } // setup()
   const _cryptoGetRandomValues = function(p, n) {
     const a = new Uint8Array(n)
     exports.getRandomValues(a)
@@ -814,15 +642,46 @@ const _blsSetupFactory = (createModule) => {
   exports.setRandFunc = f => {
     exports.getRandomValues = f
   }
-  exports.init = async (curveType = exports.ethMode ? exports.BLS12_381 : exports.BN254) => {
+  exports.init = (curveType = exports.BN254) => {
     exports.curveType = curveType
-    exports.getRandomValues = crypto.getRandomValues.bind(crypto)
-    exports.mod = await createModule({
-      cryptoGetRandomValues: _cryptoGetRandomValues,
+    const name = 'bls_c'
+    return new Promise(resolve => {
+      if (isNodeJs) {
+        const crypto = require('crypto')
+        exports.getRandomValues = crypto.randomFillSync
+        const path = require('path')
+        const js = require(`./${name}.js`)
+        const Module = {
+          cryptoGetRandomValues : _cryptoGetRandomValues,
+          locateFile: baseName => { return path.join(__dirname, baseName) }
+        }
+        js(Module)
+          .then(_mod => {
+            exports.mod = _mod
+            setup(exports, curveType)
+            resolve()
+          })
+      } else {
+        const crypto = window.crypto || window.msCrypto
+        exports.getRandomValues = x => crypto.getRandomValues(x)
+        fetch(`./${name}.wasm`) // eslint-disable-line
+          .then(response => response.arrayBuffer())
+          .then(buffer => new Uint8Array(buffer))
+          .then(() => {
+            if (typeof module !== 'undefined' && module.exports) {
+              exports.mod = require('./bls_c')()
+            } else {
+              exports.mod = Module() // eslint-disable-line
+            }
+
+            exports.mod.cryptoGetRandomValues = _cryptoGetRandomValues
+            exports.mod.onRuntimeInitialized = () => {
+              setup(exports, curveType)
+              resolve()
+            }
+          })
+      }
     })
-    blsSetup(exports, curveType)
   }
   return exports
-}
-
-module.exports = _blsSetupFactory
+})

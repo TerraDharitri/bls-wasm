@@ -1,5 +1,5 @@
 'use strict'
-const bls = require('../src/index.js')
+const bls = require('./bls.js')
 const assert = require('assert')
 const { performance } = require('perf_hooks')
 
@@ -10,13 +10,9 @@ const curveTest = (curveType, name) => {
         console.log(`name=${name} curve order=${bls.getCurveOrder()}`)
         serializeTest()
         signatureTest()
-        opTest()
         miscTest()
         shareTest()
         addTest()
-        if (curveType == bls.BLS12_381) {
-          generatorOfPublicKeyTest()
-        }
         console.log('all ok')
         benchAll()
       } catch (e) {
@@ -29,6 +25,7 @@ const curveTest = (curveType, name) => {
 async function curveTestAll () {
   // can't parallel
   await curveTest(bls.BN254, 'BN254')
+  await curveTest(bls.BN381_1, 'BN381_1')
   await curveTest(bls.BLS12_381, 'BLS12_381')
 }
 
@@ -70,45 +67,6 @@ function signatureTest () {
   sig.dump('signature ')
 
   assert(pub.verify(sig, msg))
-}
-
-function opTest () {
-  console.log('opTest')
-  const sec1 = new bls.SecretKey()
-  const sec2 = new bls.SecretKey()
-  sec1.setByCSPRNG()
-  sec2.setByCSPRNG()
-  const pub1 = sec1.getPublicKey()
-  const pub2 = sec2.getPublicKey()
-  sec1.dump('sec1 ')
-  sec2.dump('sec2 ')
-  pub1.dump('pub1 ')
-  pub2.dump('pub2 ')
-
-  const msg = 'doremifa'
-  const sig1 = sec1.sign(msg)
-  const sig2 = sec2.sign(msg)
-  assert(pub1.verify(sig1, msg))
-  assert(pub2.verify(sig2, msg))
-  // add
-  {
-    const sec = sec1.clone()
-    sec.add(sec2)
-    sec.dump('sec ')
-    const pub = pub1.clone()
-    pub.add(pub2)
-    pub.dump('pub ')
-    const sig = sig1.clone()
-    sig.add(sig2)
-    sig.dump('sig ')
-    assert(pub.verify(sig, msg))
-  }
-  // mul
-  pub1.mul(sec2)
-  pub1.dump('pub1*sec2 ')
-  pub2.mul(sec1)
-  pub2.dump('pub2*sec1 ')
-  assert(pub1.isEqual(pub2))
 }
 
 function bench (label, count, func) {
@@ -265,22 +223,4 @@ function addTest () {
   assert(pub[0].verify(sig[0], m))
   const sig2 = sec[0].sign(m)
   assert(sig2.isEqual(sig[0]))
-}
-
-function generatorOfPublicKeyTest() {
-  // save the generater
-  const keep = bls.getGeneratorOfPublicKey()
-  const keepStr = keep.getStr(16)
-  const gen = new bls.PublicKey()
-  gen.setStr("1 24aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8 13e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e ce5d527727d6e118cc9cdc6da2e351aadfd9baa8cbdd3a76d429a695160d12c923ac9cc3baca289e193548608b82801 606c4a02ea734cc32acd2b02bc28b99cb3e287e85a763af267492ab572e99ab3f370d275cec1da1aaa9075ff05f79be", 16)
-  bls.setGeneratorOfPublicKey(gen)
-  const sk = new bls.SecretKey()
-  sk.setInt(1)
-  let pk = sk.getPublicKey()
-  console.log(pk.serializeToHexStr())
-  bls.setETHserialiation(true) // big endian
-  assert(pk.serializeToHexStr() == "93e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8");
-  // recover setting
-  bls.setETHserialiation(false)
-  bls.setGeneratorOfPublicKey(keep)
 }
