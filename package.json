@@ -1,6 +1,6 @@
 {
   "name": "@terradharitri/sdk-bls-wasm",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "BLS signature for Node.js by WebAssembly",
   "main": "bls.js",
   "scripts": {
@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/terradharitri/bls-wasm.git"
+    "url": "git+https://github.com/TerraDharitri/bls-wasm.git"
   },
   "keywords": [
     "BLS signature",
@@ -25,6 +25,6 @@
   },
   "homepage": "https://github.com/herumi/bls-wasm#readme",
   "devDependencies": {
-    "standard": "^17.1.2"
+    "standard": "^10.0.3"
   }
 }
